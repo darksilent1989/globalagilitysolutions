@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skip Trace Database Flow</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+
+        .diagram-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .title {
+            text-align: center;
+            font-size: 28px;
+            font-family:sans-serif;
+            font-weight: bold;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .svg-container {
+            padding: 40px;
+            background: #f8f9fa;
+        }
+
+        .database {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+        }
+
+      
+
+        .decision {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .decision-shape {
+            fill: #00b8de;
+            stroke: #fff;
+            stroke-width: 3;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+        }
+
+      
+
+        .decision-text {
+            fill: white;
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .flow-line {
+            fill: none;
+            stroke: #4CAF50;
+            stroke-width: 3;
+            stroke-dasharray: 10, 5;
+            animation: dash 2s linear infinite;
+            filter: drop-shadow(0 2px 4px rgba(76, 175, 80, 0.3));
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -15;
+            }
+        }
+
+        .data-particle {
+            fill: #FF9800;
+            filter: drop-shadow(0 2px 4px rgba(255, 152, 0, 0.5));
+        }
+
+        .label-text {
+            fill: #333;
+            font-size: 14px;
+            font-weight: bold;
+            text-anchor: middle;
+        }
+
+        .path-label {
+            fill: #666;
+            font-size: 11px;
+            font-weight: bold;
+            text-anchor: middle;
+        }
+
+        .glow-effect {
+            filter: drop-shadow(0 0 10px rgba(255, 107, 107, 0.5));
+        }
+
+        .interactive-area {
+            fill: transparent;
+            stroke: none;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .status-dot {
+            r: 6;
+            transition: all 0.3s ease;
+        }
+
+        .status-active { fill: #4CAF50; }
+        .status-processing { fill: #11ff00; }
+        .status-idle { fill: #9E9E9E; }
+
+        .flow-arrow {
+            fill: #4CAF50;
+            animation: moveArrow 2s ease-in-out infinite;
+        }
+
+        @keyframes moveArrow {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(5px); }
+        }
+
+        .data-flow-emphasis {
+            stroke: #f1f500;
+            stroke-width: 4;
+            fill: none;
+            stroke-dasharray: 8, 4;
+            animation: flowPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes flowPulse {
+            0%, 100% { stroke-width: 4; opacity: 0.7; }
+            50% { stroke-width: 6; opacity: 1; }
+        }
+
+         /* Navigation Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 300px;
+            height: 100vh;
+            background: linear-gradient(180deg, rgba(0, 79, 113, 0.95), rgba(102, 126, 234, 0.95));
+            backdrop-filter: blur(15px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 5px 0 20px rgba(0, 0, 0, 0.3);
+            transition: left 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            z-index: 1000;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar.open {
+            left: 0;
+        }
+
+        .sidebar-header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .sidebar-title {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .sidebar-subtitle {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+        }
+
+        .nav-section {
+            margin-bottom: 25px;
+        }
+
+        .nav-section-title {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            font-size: 0.95rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-item:hover::before {
+            left: 100%;
+        }
+
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-weight: 600;
+        }
+
+        .nav-icon {
+            margin-right: 12px;
+            font-size: 1.1rem;
+        }
+
+        .hamburger {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .hamburger:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+        }
+
+        .hamburger-line {
+            width: 20px;
+            height: 2px;
+            background: white;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .hamburger-line::before,
+        .hamburger-line::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 2px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .hamburger-line::before {
+            top: -6px;
+        }
+
+        .hamburger-line::after {
+            top: 6px;
+        }
+
+        .hamburger.active .hamburger-line {
+            background: transparent;
+        }
+
+        .hamburger.active .hamburger-line::before {
+            top: 0;
+            transform: rotate(45deg);
+        }
+
+        .hamburger.active .hamburger-line::after {
+            top: 0;
+            transform: rotate(-45deg);
+        }
+
+          /* Navigation instructions */
+        .nav-instructions {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .nav-instructions:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+        
+    </style>
+</head>
+<body>
+
+
+
+        
+     
+    </nav>
+
+      <!-- Navigation Instructions -->
+    <div class="nav-instructions">
+        <strong>Navigation:</strong><br>
+        ← → Arrow keys to navigate between pages<br>
+        ☰ Menu for page selection
+    </div>
+
+    <div class="diagram-container">
+        <div class="title">Global Agility DMV Data Flow</div>
+        <div class="svg-container">
+            <svg width="100%" height="100%" viewBox="0 0 1000 600">
+
+                <!-- Enhanced Flow Lines with Emphasis - Properly Connected -->
+              
+
+                <!-- Regular Flow Lines - Properly Connected -->
+                <path d="M170,310 370,310" class="flow-line"/> <!-- USPS  line-->
+                <path d="M365,300 390,200" class="flow-line"/><!-- Left skip trace line-->
+                <path d="M370,345    420,400" class="flow-line"/><!-- Hits No-->
+                <path d="M430,400 500,340" class="flow-line"/><!-- Hits Credit Bureu 1-->
+                <path d="M500,280  450,200" class="flow-line"/>
+                <path d="M530,310  700,310" class="flow-line"/><!-- Green Last line-below-->
+                <path d="M700,300  455,200" class="flow-line"/> <!-- Green Last line-->
+                 <path d="M385,200  170,300" class="flow-line"/> <!-- Start line-->
+
+                <!-- Flow Arrows - Updated Positions -->
+             
+
+                <!-- Skip Trace Database (Global) -->
+                <image
+                    href="https://www.globalagilitysolutions.com/wp-content/uploads/2025/09/database-dmv.webp"
+                    x="370" y="60" width="160" height="160"
+                    data-tooltip="Global Skip Trace Database - Main data repository"
+                    class="database"
+                />
+
+                <!-- USPS Licensed NCOA Vendor -->
+                <image
+                    href="https://www.globalagilitysolutions.com/wp-content/uploads/2025/09/database-car.webp"
+                    x="70" y="230" width="100" height="100"
+                    data-tooltip="USPS Licensed NCOA Vendor Database"
+                    class="database"
+                />
+
+                <!-- Credit Bureau Source #1 -->
+                <image
+                    href="https://www.globalagilitysolutions.com/wp-content/uploads/2025/09/database-car.webp"
+                    x="380" y="400" width="100" height="100"
+                    data-tooltip="Credit Bureau Source #1"
+                    class="database"
+                />
+
+                <!-- Credit Bureau Source #2 -->
+                <image
+                    href="https://www.globalagilitysolutions.com/wp-content/uploads/2025/09/database-car.webp"
+                    x="700" y="250" width="100" height="100"
+                    data-tooltip="Credit Bureau Source #2"
+                    class="database"
+                />
+
+                <!-- Decision Diamond 1 -->
+                <g class="decision glow-effect" data-tooltip="Initial Hit Check - Data validation point">
+                    <polygon points="370,280 400,310 370,340 340,310" class="decision-shape"/>
+                    <text x="370" y="310" class="decision-text">HITS</text>
+                </g>
+
+                <!-- Decision Diamond 2 -->
+                <g class="decision glow-effect" data-tooltip="Secondary Hit Verification - Final data check">
+                    <polygon points="500,280 530,310 500,340 470,310" class="decision-shape"/>
+                   <text x="500" y="310" class="decision-text">HITS</text>
+                </g>
+
+                <!-- Enhanced Data Flow Particles -->
+               
+
+                <!-- Status Indicators -->
+         
+
+                <!-- Enhanced Labels -->
+                <text x="120" y="190" class="label-text">USPS Licensed</text>
+                <text x="120" y="205" class="label-text">NCOA Vendor</text>
+                
+                <text x="430" y="515" class="label-text">Credit Bureau</text>
+                <text x="430" y="530" class="label-text">Source #1</text>
+                
+                <text x="750" y="365" class="label-text">Credit Bureau</text>
+                <text x="750" y="385" class="label-text">Source #2</text>
+
+                <text x="400" y="25" class="label-text">Global Skip Trace Database</text>
+
+                <!-- Path Labels with Better Positioning -->
+                <text x="360" y="245" class="path-label">✓ YES</text>
+                <text x="360" y="370" class="path-label">✗ NO</text>
+                <text x="460" y="245" class="path-label">✓ YES</text>
+                <text x="585" y="330" class="path-label">✗ NO</text>
+                <text x="600" y="230" class="path-label">HIT AND NO HIT</text>
+
+                <!-- Interactive Areas -->
+           
+            </svg>
+        </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+     // Navigation functionality
+        const hamburger = document.getElementById('hamburger');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        const mainContent = document.getElementById('mainContent');
+
+        // Toggle sidebar
+        function toggleSidebar() {
+            hamburger.classList.toggle('active');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
+            mainContent.classList.toggle('shifted');
+        }
+
+        // Event listeners
+        hamburger.addEventListener('click', toggleSidebar);
+        overlay.addEventListener('click', toggleSidebar);
+
+        // Close sidebar when clicking nav items
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    toggleSidebar();
+                }
+            });
+        });
+
+        // Arrow key navigation
+        const pages = [
+            'index.html',
+            'index2.html',
+            'analytics.html',
+            'reports.html',
+            'settings.html',
+            'export.html',
+            'documentation.html',
+            'support.html'
+        ];
+
+        // Get current page index (assuming we're on index2.html)
+        let currentPageIndex = 2; // index2.html is at index 1
+
+        // Arrow key navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (currentPageIndex > 0) {
+                    window.location.href = pages[currentPageIndex - 1];
+                } else {
+                    // Loop to last page
+                    window.location.href = pages[pages.length - 1];
+                }
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (currentPageIndex < pages.length - 1) {
+                    window.location.href = pages[currentPageIndex + 1];
+                } else {
+                    // Loop to first page
+                    window.location.href = pages[0];
+                }
+            } else if (e.key === 'Escape') {
+                // Close sidebar if open
+                if (sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            }
+        });
+
+        // Close sidebar on window resize
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768 && sidebar.classList.contains('open')) {
+                toggleSidebar();
+            }
+        });
+       
+
+     
+    </script>
+</body>
+</html>
